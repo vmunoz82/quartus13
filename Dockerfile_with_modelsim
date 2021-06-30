@@ -1,0 +1,80 @@
+ARG INSTALL_DIR="/opt/altera/13.0sp1"
+ARG QUARTUS_INSTALLER="QuartusSetupWeb-13.0.1.232.run"
+ARG MODELSIM_INSTALLER="ModelSimSetup-13.0.1.232.run"
+
+FROM ubuntu:20.04 as installer
+ARG QUARTUS_INSTALLER
+ARG MODELSIM_INSTALLER
+
+LABEL stage=builder
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+ADD inode64.c /tmp
+ADD ${QUARTUS_INSTALLER} /tmp
+ADD ${MODELSIM_INSTALLER} /tmp
+
+RUN apt update && \
+    apt -y install --no-install-recommends \
+        libc6-i386 \
+        wget build-essential gcc-multilib && \
+    rm -rf /var/lib/apt/lists/* && \
+    /tmp/${QUARTUS_INSTALLER} --unattendedmodeui minimal --mode unattended --installdir /tmp/installer && \
+    rm -rf /tmp/${QUARTUS_INSTALLER} && \
+    /tmp/${MODELSIM_INSTALLER} --unattendedmodeui minimal --mode unattended --installdir /tmp/installer && \
+    rm -rf /tmp/${MODELSIM_INSTALLER} && \
+    cd /tmp && \
+    wget http://download.savannah.gnu.org/releases/freetype/freetype-2.4.7.tar.gz && \
+    tar xzvf freetype-2.4.7.tar.gz && \
+    cd freetype-2.4.7 && \
+    CFLAGS=-m32 ./configure --prefix=/tmp/freetype-2.4.7-32bit/ && \
+    make && make install && \
+    cd /tmp && \
+    printf "GLIBC_2.0 { \
+      global: \
+      readdir; \
+      __fxstat; \
+      __xstat; \
+      __lxstat; \
+    };" > vers && \
+    printf "int main() {}" > dummy.c && \
+    gcc -c -fPIC -m32 -fno-stack-protector inode64.c && \
+    ld -shared -melf_i386 --version-script vers -o inode64_32.so inode64.o && \
+    gcc -c -fPIC -fno-stack-protector dummy.c && \
+    ld -shared -o inode64_64.so dummy.o
+
+FROM ubuntu:20.04
+ARG INSTALL_DIR
+
+LABEL maintainer="Victor Muñoz <victor@2c-b.cl>"
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+COPY --from=installer /tmp/freetype-2.4.7-32bit/lib/libfreetype.so.6.7.2 /lib/i386-linux-gnu/libfreetype.so.6.7.2
+COPY --from=installer /tmp/inode64_32.so /lib/i386-linux-gnu/inode64.so
+COPY --from=installer /tmp/inode64_64.so /lib/x86_64-linux-gnu/inode64.so
+
+RUN dpkg --add-architecture i386 && \
+    apt -y update && \
+    apt -y install --no-install-recommends \
+        libc6-i386 && \
+    apt -y update && \
+    apt -y install --no-install-recommends \
+        libxext6:i386 libncurses5:i386 libxss1:i386 && \
+    apt -y install --no-install-recommends \
+        libxft2:i386 && \
+    apt -y update && \
+    apt -y install software-properties-common && \
+    add-apt-repository -y ppa:linuxuprising/libpng12 && \
+    apt -y update && \
+    apt -y install --no-install-recommends \
+        libpng12-0 \
+        libfreetype6 libsm6 libxrender1 libfontconfig1 \
+        libxext6 libxft2 libxss1 && \
+    rm -rf /var/lib/apt/lists/* && \
+    cd /lib/i386-linux-gnu/ && \
+    rm -f libfreetype.so.6 && \
+    ln -s libfreetype.so.6.7.2 libfreetype.so.6
+
+COPY --from=installer /tmp/installer ${INSTALL_DIR}
+

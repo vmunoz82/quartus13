@@ -1,0 +1,18 @@
+ARG QUARTUS_BASE=quartus_base:13
+ARG INSTALL_DIR="/opt/altera/13.0sp1"
+
+FROM ubuntu:20.04 as installer
+LABEL stage=builder
+ARG INSTALL_DIR
+
+COPY *.qdz /tmp/
+
+RUN apt -y update && apt -y install unzip && \
+    mkdir /tmp/install && \
+    unzip -o '/tmp/*.qdz' -d /tmp/install && \
+    rm -rf /tmp/*.qdz
+
+FROM $QUARTUS_BASE
+ARG INSTALL_DIR
+
+COPY --from=installer /tmp/install ${INSTALL_DIR}
