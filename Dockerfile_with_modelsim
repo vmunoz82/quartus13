@@ -24,7 +24,7 @@ RUN apt update && \
     /tmp/${MODELSIM_INSTALLER} --unattendedmodeui minimal --mode unattended --installdir /tmp/installer && \
     rm -rf /tmp/${MODELSIM_INSTALLER} && \
     cd /tmp && \
-    wget http://download.savannah.gnu.org/releases/freetype/freetype-2.4.7.tar.gz && \
+    wget https://download-mirror.savannah.gnu.org/releases/freetype/freetype-old/freetype-2.4.7.tar.gz --no-check-certificate && \
     tar xzvf freetype-2.4.7.tar.gz && \
     cd freetype-2.4.7 && \
     CFLAGS=-m32 ./configure --prefix=/tmp/freetype-2.4.7-32bit/ && \

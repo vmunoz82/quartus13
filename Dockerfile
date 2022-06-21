@@ -7,7 +7,6 @@ ARG QUARTUS_INSTALLER
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-ADD inode64.c /tmp
 ADD ${QUARTUS_INSTALLER} /tmp
 
 RUN apt update && \
